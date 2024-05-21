@@ -1,0 +1,62 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "applicationName": {
+      "value": "nrt-flyadmin"
+    },
+    "buildHostBinding": {
+      "value": "true"
+    },
+    "enableAutoScale": {
+      "value": "false"
+    },
+    "environment": {
+      "value": "qa"
+    },
+    "productName": {
+      "value": "FlyAdmin"
+    },
+    "team": {
+      "value": "EmployeeTravel"
+    },
+    "teamEmails": {
+      "value": [
+        {
+          "name": "TeamEmail",
+          "emailAddress": "flytestaccount@alaskaair.onmicrosoft.com"
+        }
+      ]
+    },
+    "state": {
+      "value": "Live"
+    },
+    "skuName": {
+      "value": "S1"
+    },
+    "numberOfWorkers": {
+      "value": 1
+    },
+    "location": {
+      "value": "westus2"
+    },
+    "pm-ssl-customHostname": {
+      "value": "flyadmin.qa.alaskasworld.com"
+    },
+    "pm-ssl-existingKeyVaultId": {
+      "value": "/subscriptions/ed3c133f-db4c-4a2f-ad20-03e724f1f3e0/resourceGroups/nonrevemployeetravel-qa-group/providers/Microsoft.KeyVault/vaults/nrtapp-qa-kv"
+    },
+    "pm-ssl-existingKeyVaultSecretName": {
+      "value": "flyadmintestalaskasworldcom"
+    },
+	"retentionInDays": {
+      "value": 90
+    },
+	"FlyAdminAPIlogAnalyticsName": {
+      "value": "nrt-flyadmin-qa-workspace"
+    },
+	"FlyAdminAPIResourceGroup": {
+	  "value": "nonrevemployeetravel-qa-group"
+	}
+  }
+}

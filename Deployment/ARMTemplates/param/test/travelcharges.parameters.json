@@ -1,0 +1,62 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "applicationName": {
+      "value": "nrt-travelcharges"
+    },
+    "buildHostBinding": {
+      "value": "true"
+    },
+    "enableAutoScale": {
+      "value": "false"
+    },
+    "environment": {
+      "value": "test"
+    },
+    "ProductName": {
+      "value": "TravelChargesAdmin"
+    },
+    "Team": {
+      "value": "EmployeeTravel"
+    },
+    "teamEmails": {
+      "value": [
+        {
+          "name": "TeamEmail",
+          "emailAddress": "flytestaccount@alaskaair.onmicrosoft.com"
+        }
+      ]
+    },
+    "state": {
+      "value": "Live"
+    },
+    "skuName": {
+      "value": "B1"
+    },
+    "numberOfWorkers": {
+      "value": 1
+    },
+    "location": {
+      "value": "westus2"
+    },
+    "pm-ssl-customHostname": {
+      "value": ""
+    },
+    "pm-ssl-existingKeyVaultId": {
+      "value": "/subscriptions/5e68440a-a332-4f89-9f8f-0a3aab470873/resourceGroups/nonrevemployeetravel-test-group/providers/Microsoft.KeyVault/vaults/nrtapp-test-kv"
+    },
+    "pm-ssl-existingKeyVaultSecretName": {
+      "value": "flyadmintestalaskasworldcom"
+    },
+	  "retentionInDays": {
+      "value": 90
+    },
+	"FlyAdminAPIlogAnalyticsName": {
+      "value": "nrt-flyadmin-test-workspace"
+    },
+	"FlyAdminAPIResourceGroup": {
+	  "value": "nonrevemployeetravel-test-group"
+	}
+  }
+}

@@ -1,0 +1,393 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "applicationName": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string",
+      "metadata": {
+        "description": "Environment type"
+      }
+    },
+    "teamEmails": {
+      "minLength": 1,
+      "type": "array",
+      "metadata": {
+        "description": "The email used to send alerts to."
+      }
+    },
+    "containerSASToken": {
+      "type": "secureString",
+      "defaultValue": "?sv=2018-03-28&ss=b&srt=sco&sp=rla&se=2025-03-29T06:44:42Z&st=2019-03-28T22:44:42Z&spr=https&sig=nDt%2BeRefbyMtSA4I6LS%2F8wLUXR2%2BIc0fHelkUjU8eUg%3D"
+    },
+    "productName": {
+      "type": "string",
+      "metadata": {
+        "description": "Product Name"
+      }
+    },
+    "team": {
+      "type": "string",
+      "metadata": {
+        "description": "Team name"
+      }
+    },
+    "state": {
+      "type": "string",
+      "defaultValue": "Live",
+      "metadata": {
+        "description": "Default startup state"
+      }
+    },
+    "skuName": {
+      "type": "string",
+      "defaultValue": "F1",
+      "allowedValues": [
+        "F1",
+        "D1",
+        "B1",
+        "B2",
+        "B3",
+        "S1",
+        "S2",
+        "S3",
+        "P1",
+        "P2",
+        "P3",
+        "P4"
+      ],
+      "metadata": {
+        "description": "Describes plan's pricing tier and capacity. Check details at https://azure.microsoft.com/en-us/pricing/details/app-service/"
+      }
+    },
+    "numberOfWorkers": {
+      "type": "int",
+      "defaultValue": 1,
+      "metadata": {
+        "description": "Number of Workers for web server farm"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "westus",
+      "metadata": {
+        "description": "the location of the resource you need to deploy to."
+      }
+    },
+	"FlyAdminAPIResourceGroup": {
+		"type": "string"
+	},
+	"FlyAdminAPIlogAnalyticsName": {
+		"type": "string"
+	},
+	"applicationType": {
+		"type": "String",
+		"defaultValue": "web"
+	},
+	"requestSource": {
+		"type": "String",
+		"defaultValue": "IbizaAIExtension",
+		"allowedValues": [
+			"IbizaAIExtension",
+			"rest"
+		],
+		"metadata": {
+			"description": "Describes what tool created this Application Insights component. Customers using this API should set this to the default 'rest'."
+		}
+	},
+	"FlowType": {
+		"type": "string",
+		"defaultValue": "Redfield",
+		"allowedValues": [
+			"Redfield",
+			"Bluefield"
+		],
+		"metadata": {
+			"description": "Used by the Application Insights system to determine what kind of flow this component was created by. This is to be set to 'Bluefield' when creating/updating a component via the REST API. - Bluefield"
+		}
+	},
+	"newOrExisting": {
+		"type": "string",
+		"defaultValue": "existing",
+		"allowedValues": ["new", "existing"]
+	},
+    "websiteTimezone": {
+      "type": "string",
+      "defaultValue": "Pacific Standard Time"
+    },
+    "pm-ssl-customHostname": {
+      "type": "string",
+      "metadata": {
+        "description": "The custom hostname that you wish to add."
+      }
+    },
+    "pm-ssl-existingKeyVaultId": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Existing Key Vault resource Id with an access policy to allow Microsoft.Web RP to read Key Vault secrets (Checkout README.md for more information)"
+      }
+    },
+    "pm-ssl-existingKeyVaultSecretName": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Key Vault Secret that contains a PFX certificate"
+      }
+    },
+    "buildHostBinding": {
+      "type": "string",
+      "defaultValue": "true",
+      "metadata": {
+        "description": "Build Host Binding"
+      }
+    },
+    "enableAutoScale": {
+      "type": "string",
+      "defaultValue": "true",
+      "metadata": {
+        "description": "Enable Auto scaling in environment"
+      }
+    },
+    "modificationDate": {
+      "type": "string",
+      "defaultValue": "[utcNow()]",
+      "metadata": {
+        "description": "Set last modified date tag"
+      }
+    },
+	"retentionInDays": {
+	  "type": "int",
+	  "defaultValue": 30,
+	  "minValue": 30,
+	  "maxValue": 730
+	},
+
+  },
+  "variables": {
+    "WebAppName": "[concat(parameters('ApplicationName'),'-', parameters('Environment'),'-site-',parameters('location'))]",
+    "HostingPlan": "[concat(parameters('ApplicationName'),'-', parameters('Environment'),'-plan-',parameters('location'))]",
+    "ComponentName": "[concat(parameters('ApplicationName'),'-', parameters('Environment'),'-appinsights')]",
+    "certificateName": "[replace(variables('webAppName'),'-site-', '-cert-')]",
+    "retentionInDays": 60,
+    "retentionInMBs": 35,
+    "AppServiceId": "[resourceId('Microsoft.Web/sites', variables('WebAppName'))]",
+    "AppServicePlanName": "[toLower(concat(parameters('ApplicationName'),'-', parameters('Environment'),'-plan-',parameters('location')))]",
+    "AppServicePlanId": "[resourceId('Microsoft.Web/serverfarms', variables('AppServicePlanName'))]",
+    "templateBaseUrl": "https://linkedarmtemplateprod01.blob.core.windows.net/armtemplates/",
+    "ModernAlertsTemplateUrl": "[concat(variables('templateBaseUrl'), 'ModernAlertsARMTemplate.json')]",
+    "AutoscaleTemplateUrl": "[concat(variables('templateBaseUrl'), 'AutoScaleARMTemplate.json')]"
+  },
+  "resources": [
+    {
+      "name": "[variables('HostingPlan')]",
+      "type": "Microsoft.Web/serverfarms",
+      "location": "[parameters('location')]",
+      "apiVersion": "2017-08-01",
+      "sku": {
+        "name": "[parameters('SkuName')]"
+      },
+      "dependsOn": [],
+      "tags": {
+        "ApplicationName": "[parameters('ApplicationName')]",
+        "Environment": "[parameters('Environment')]",
+        "ProductName": "[parameters('ProductName')]",
+        "Team": "[parameters('Team')]",
+        "Contact": "[parameters('teamEmails')][0].emailAddress",
+        "State": "[parameters('State')]",
+        "ModifiedDate": "[parameters('modificationDate')]"
+      },
+      "properties": {
+        "name": "[variables('HostingPlan')]",
+        "numberOfWorkers": "[parameters('NumberOfWorkers')]"
+      }
+    },
+    {
+      "name": "[variables('WebAppName')]",
+      "type": "Microsoft.Web/sites",
+      "location": "[parameters('location')]",
+      "apiVersion": "2018-11-01",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', variables('HostingPlan'))]",
+        "[resourceId('Microsoft.Insights/components', variables('ComponentName'))]"
+      ],
+      "tags": {
+        "ApplicationName": "[parameters('ApplicationName')]",
+        "Environment": "[parameters('Environment')]",
+        "ProductName": "[parameters('ProductName')]",
+        "Team": "[parameters('Team')]",
+        "Contact": "[parameters('teamEmails')][0].emailAddress",
+        "State": "[parameters('State')]",
+        "Deployment": "Windows",
+        "ModifiedDate": "[parameters('modificationDate')]"
+      },
+      "properties": {
+        "name": "[variables('WebAppName')]",
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('HostingPlan'))]",
+        "httpsOnly": true,
+        "siteConfig": {
+          "alwaysOn": true,
+          "appSettings": [
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('ComponentName')), '2014-04-01').InstrumentationKey]"
+            },
+            {
+              "name": "APPINSIGHTS_JAVASCRIPT_ENABLED",
+              "value": "true"
+            },
+            {
+              "name": "Environment",
+              "value": "[parameters('Environment')]"
+            },
+            {
+              "name": "WEBSITE_TIME_ZONE",
+              "value": "[parameters('websiteTimezone')]"
+            }
+          ]
+        }
+      },
+      "resources": [
+        {
+          "name": "logs",
+          "type": "config",
+          "location": "[parameters('location')]",
+          "apiVersion": "2018-11-01",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/sites', variables('WebAppName'))]"
+          ],
+          "properties": {
+            "failedRequestsTracing": {
+              "enabled": true
+            },
+            "detailedErrorMessages": {
+              "enabled": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "Microsoft.Web/certificates",
+      "name": "[variables('certificateName')]",
+      "apiVersion": "2016-03-01",
+      "location": "[parameters('location')]",
+      "properties": {
+        "keyVaultId": "[parameters('pm-ssl-existingKeyVaultId')]",
+        "keyVaultSecretName": "[parameters('pm-ssl-existingKeyVaultSecretName')]",
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('HostingPlan'))]"
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Web/sites/',variables('webAppName'))]"
+      ]
+    },
+    {
+      "condition": "[equals(parameters('buildHostBinding'),'true')]",
+      "type": "Microsoft.Web/sites/hostnameBindings",
+      "name": "[concat(variables('webAppName'), '/', parameters('pm-ssl-customHostname'))]",
+      "apiVersion": "2016-03-01",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sslState": "SniEnabled",
+        "thumbprint": "[reference(resourceId('Microsoft.Web/certificates', variables('certificateName'))).Thumbprint]"
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Web/certificates/',variables('certificateName'))]"
+      ]
+    },
+    {
+      "name": "[variables('ComponentName')]",
+      "type": "Microsoft.Insights/components",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2020-02-02",
+      "dependsOn": [],
+      "tags": {
+        "ApplicationName": "[parameters('ApplicationName')]",
+        "Environment": "[parameters('Environment')]",
+        "ProductName": "[parameters('ProductName')]",
+        "Team": "[parameters('Team')]",
+        "Contact": "[parameters('teamEmails')][0].emailAddress",
+        "State": "[parameters('State')]"
+      },
+      "properties": {
+        "applicationId": "[resourceId('Microsoft.Web/sites', variables('webAppName'))]",
+		"Application_Type": "[parameters('applicationType')]",
+		"Flow_Type": "[parameters('FlowType')]",
+		"Request_Source": "[parameters('requestSource')]",
+		"retentionInDays": "[parameters('retentionInDays')]",
+		 "WorkspaceResourceId": "[if(equals(parameters('newOrExisting'), 'new'), resourceId('Microsoft.OperationalInsights/workspaces', parameters('FlyAdminAPIlogAnalyticsName')), extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('FlyAdminAPIResourceGroup')), 'Microsoft.OperationalInsights/workspaces', parameters('FlyAdminAPIlogAnalyticsName')))]"
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2018-05-01",
+      "name": "ModernAlertsLinkedTemplate",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('webAppName'))]",
+        "[resourceId('Microsoft.Web/certificates', variables('certificateName'))]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(variables('ModernAlertsTemplateUrl'),parameters('containerSasToken'))]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "teamEmails": {
+            "value": "[parameters('teamEmails')]"
+          },
+          "ApplicationName": {
+            "value": "[parameters('ApplicationName')]"
+          },
+          "Environment": {
+            "value": "[parameters('Environment')]"
+          },
+          "Location": {
+            "value": "[parameters('Location')]"
+          },
+          "AppServiceId": {
+            "value": "[variables('AppServiceId')]"
+          },
+          "AppServicePlanId": {
+            "value": "[variables('AppServicePlanId')]"
+          },
+          "AppServicePlanName": {
+            "value": "[variables('AppServicePlanName')]"
+          }
+        }
+      }
+    },
+    {
+      "condition": "[equals(parameters('enableAutoScale'),'true')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2018-05-01",
+      "name": "[concat('AutoScaleLinkedTemplate-',variables('webAppName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('webAppName'))]",
+        "[resourceId('Microsoft.Web/certificates', variables('certificateName'))]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(variables('AutoScaleTemplateUrl'),parameters('containerSasToken'))]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "teamEmails": {
+            "value": "[parameters('teamEmails')[0].emailAddress]"
+          },
+          "Location": {
+            "value": "[parameters('Location')]"
+          },
+          "AppServicePlanId": {
+            "value": "[variables('AppServicePlanId')]"
+          },
+          "AppServicePlanName": {
+            "value": "[variables('AppServicePlanName')]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

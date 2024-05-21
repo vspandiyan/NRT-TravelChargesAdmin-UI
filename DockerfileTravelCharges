@@ -1,0 +1,44 @@
+# => Build container
+FROM node:12-alpine as build
+WORKDIR /app
+COPY . .
+RUN ls -la
+RUN npm ci
+RUN npm rebuild node-sass
+RUN npm run build
+
+# => Run container
+FROM beamaustralia/react-env:latest
+
+WORKDIR /var/www
+
+COPY --from=build /app/build /var/www
+
+#COPY .env* /var/www/
+
+
+# # # Stage 1
+# FROM node:10-alpine as react-build
+# WORKDIR /app
+# COPY ./WEB_AdminClient ./
+
+# ARG BUILD_CONFIG
+
+# ### List all files now in this directory to ensure we have the correct files in the Final Image
+# RUN ls -la
+# RUN npm install react-scripts@latest
+# RUN npm install 
+# RUN npm rebuild node-sass
+# RUN npm run build:${BUILD_CONFIG}
+# # RUN yarn
+# # RUN yarn build:development
+
+# # Stage 2 - the production environment
+# FROM node:10-alpine
+# RUN npm install -g serve
+# WORKDIR /app
+# COPY --from=react-build /app/build .
+# ### List all files now in this directory to ensure we have the correct files in the Final Image
+# RUN ls -la
+# EXPOSE 5000
+# CMD ["serve","-s", ".", "-l", "5000"]

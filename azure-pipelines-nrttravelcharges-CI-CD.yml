@@ -1,0 +1,114 @@
+name: $(Build.DefinitionName)_$(Build.SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  branches:
+    include:
+    - feature/*
+    - main
+    - develop
+  paths:
+    include:
+    - TravelCharges/*
+    - azure-pipelines-nrttravelcharges-CI-CD.yml
+    - Deployment/ARMTemplates/travelcharges.json
+    - Deployment/ARMTemplates/travelcharges-linux.json
+    - Deployment/ARMTemplates/param/*
+
+#Variable groups are defined in ASDEVOPS : /EnterpriseSystems/Pipelines/Library
+#Use a variable group to store values that you want to control and make available across multiple pipelines. 
+#You can also use variable groups to store secrets and other values that might need to be passed into a YAML 
+#pipeline. Variable groups are defined and managed in the Library page under Pipelines.    
+variables:
+  - group: DockerInfo
+  - group: nonrev_sdp_token
+  - group: PipelineVariables
+
+resources:
+  repositories:
+  - repository: templates  # identifier (A-Z, a-z, 0-9, and underscore)
+    type: git  # see below git - azure devops
+    name: SoftwareTransformation/DevOps  # Teamproject/repositoryname (format depends on `type`)
+    ref: refs/heads/master
+
+stages:
+- stage: Build
+  displayName: Build Stage
+  jobs:
+  - job: NRTAdminReactDockerBuild
+    pool:
+      vmImage: '$(NRTAgentVmImage)' #"ubuntu-latest"
+    steps:
+    - upload: $(Build.SourcesDirectory)
+      artifact: Prepped
+      displayName: 'Uploading Prepped Sources' 
+    - template: YAML/Builds/Docker/DockerBuildAndPublish.yml@templates  # Template reference
+      parameters:
+        Name: "NRTTravelChargesDocker"
+        dockerimagename: 'nrttravelchargesadmin'
+        dockeracr: 'aagacr'
+        dockerapppath: ' ./TravelCharges'
+        dockerfile: './TravelCharges/Dockerfile'
+        
+- stage: ArtifactsStage
+  displayName: ArtifactsStage
+  jobs:
+  - job: ArmTemplatePublish
+    pool:
+      name: 'Hosted Windows 2019 with VS2019' # Valid Values: 'OnPremAgents' - Hosted:'Hosted VS2017',  'Hosted macOS', 'Hosted Ubuntu 1604'
+    steps:
+    - task: CopyFiles@2
+      displayName: 'Copy ARM Templates to Staging Directory'  
+      inputs:
+        SourceFolder: 'Deployment/ARMTemplates'
+        Contents: '**/*'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+    - task: PublishPipelineArtifact@0
+      displayName: 'Publish ARM Templates as Pipeline Artifacts to access within other stages'  
+      inputs:
+        artifactName: 'PipeLineArtifacts'
+        targetPath: '$(System.ArtifactsDirectory)'
+        
+- stage: DeployPreStaging
+  dependsOn: ['ArtifactsStage']
+  displayName: Deploy Pre Staging [Test]
+  jobs:
+  - deployment: WebAppDeployment
+    pool:
+      name: 'OnPremAgents' # Valid Values: 'OnPremAgents' - Hosted:'Hosted VS2017',  'Hosted macOS', 'Hosted Ubuntu 1804'
+    displayName: Web App Deploy Job
+    environment: 'NRT-PreStaging'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            # Downloading build artifacts
+          - task: DownloadPipelineArtifact@1
+            displayName: 'Download Pipeline Artifacts'
+            inputs:
+              artifactName: PipeLineArtifacts
+              itemPattern: '**/*'
+          # Creating Azure Resources under the resource group using ARM template from Pipeline Artifacts
+          - task: AzureResourceGroupDeployment@2
+            displayName: 'Azure Deployment:Create Or Update Resource Group action on nonrevemployeetravelcontainer-test-group'
+            inputs:
+              azureSubscription: 'nonrevemployeetravelcontainer-test-group-SPN'
+              action: 'Create Or Update Resource Group'
+              resourceGroupName: 'nonrevemployeetravelcontainer-test-group'
+              location: 'West US 2'
+              csmFile: '$(System.ArtifactsDirectory)\travelcharges-linux.json'
+              csmParametersFile: '$(System.ArtifactsDirectory)\param\test\travelcharges.parameters.json'
+              overrideParameters: '-nodeEnv test'
+          
+          - task: AzureRmWebAppDeployment@4
+            displayName: 'Azure App Service Deploy: TravelChargesAdminLinux'
+            inputs:
+              azureSubscription: 'nonrevemployeetravelcontainer-test-group-SPN'
+              appType: webAppContainer
+              WebAppName: nrt-travelcharges-test-site-westus2
+              DockerNamespace: aagacr.azurecr.io
+              DockerRepository: nrttravelchargesadmin #-$(Build.SourceBranchName)
+              DockerImageTag: latest
+              AppSettings: -DOCKER_REGISTRY_SERVER_URL https://aagacr.azurecr.io -DOCKER_REGISTRY_SERVER_USERNAME $(AagacrUser) -DOCKER_REGISTRY_SERVER_PASSWORD $(AagacrKey)
+
+
